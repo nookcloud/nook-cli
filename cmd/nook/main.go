@@ -75,6 +75,8 @@ func main() {
 		err = importNook(args, asJSON)
 	case "data":
 		err = data(args, asJSON)
+	case "secret", "secrets":
+		err = secret(args, asJSON)
 	case "delete":
 		err = deleteNook(args, asJSON)
 	case "mcp":
@@ -122,6 +124,7 @@ more:
   transfer [nook] <email>      versions [nook]      rollback [nook] [version]
   export [nook] [-o file]      import <file> [--name n] [--share]
   data <nook> list|get|create|update|delete|export|import <collection> ...
+  secret set|list|unset [nook] KEY      values come from stdin or a prompt, never argv
   delete [nook]                mcp (run the MCP server on stdio)
   account whoami|plan|upgrade|logout|stats
 
