@@ -21,6 +21,7 @@ func TestParseStatic(t *testing.T) {
 		`{"name":"ok","secrets":["TOKEN"]}`,
 		`{"name":"ok","egress":["example.com"]}`,
 		`{"name":"ok","cron":[{"schedule":"* * * * *","run":"x"}]}`,
+		`{"name":"ok","source":"viewers"}`,
 	} {
 		if _, err := Parse([]byte(bad)); err == nil {
 			t.Errorf("expected error for %s", bad)
@@ -40,6 +41,10 @@ func TestParseService(t *testing.T) {
 	}
 	if m.Entry != "" {
 		t.Errorf("a service nook has no entry, got %q", m.Entry)
+	}
+	// Unset means the run code stays with the owner and editors, and says so when written back.
+	if m.Source != "editors" || m.SourceVisibleToViewers() {
+		t.Errorf("source defaults closed, got %q", m.Source)
 	}
 	if m.Egress[1] != "api.example.com" {
 		t.Errorf("egress hosts are lowercased, got %q", m.Egress[1])
@@ -68,6 +73,8 @@ func TestServiceValidation(t *testing.T) {
 		"egress bare word": `{"name":"board","type":"service","run":"x","port":8000,"egress":["localhost"]}`,
 		"cron schedule":    `{"name":"board","type":"service","run":"x","port":8000,"cron":[{"schedule":"0 9 * *","run":"y"}]}`,
 		"cron run blank":   `{"name":"board","type":"service","run":"x","port":8000,"cron":[{"schedule":"* * * * *","run":""}]}`,
+		"source unknown":   `{"name":"board","type":"service","run":"x","port":8000,"source":"everyone"}`,
+		"source public":    `{"name":"board","type":"service","run":"x","port":8000,"source":"public"}`,
 	} {
 		if _, err := Parse([]byte(bad)); err == nil {
 			t.Errorf("%s: expected an error for %s", name, bad)
@@ -80,5 +87,20 @@ func TestServiceValidation(t *testing.T) {
 	// No egress at all is valid and means no outbound network.
 	if m, err := Parse([]byte(`{"name":"board","type":"service","run":"x","port":8000}`)); err != nil || len(m.Egress) != 0 {
 		t.Errorf("egress is optional: %v", err)
+	}
+}
+
+func TestSourceVisibility(t *testing.T) {
+	// A static nook's files reach the browser anyway, so they are always readable.
+	m, err := Parse([]byte(`{"name":"page"}`))
+	if err != nil || !m.SourceVisibleToViewers() {
+		t.Errorf("static source is always visible: %+v %v", m, err)
+	}
+	if m.Source != "" {
+		t.Errorf("static nooks carry no source field, got %q", m.Source)
+	}
+	open, err := Parse([]byte(`{"name":"board","type":"service","run":"x","port":8000,"source":"viewers"}`))
+	if err != nil || !open.SourceVisibleToViewers() {
+		t.Errorf(`"viewers" opts in: %+v %v`, open, err)
 	}
 }

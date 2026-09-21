@@ -26,6 +26,7 @@ var (
 	hostRe   = regexp.MustCompile(`^[a-z0-9]([a-z0-9-]*[a-z0-9])?(\.[a-z0-9]([a-z0-9-]*[a-z0-9])?)+$`)
 	reserved = map[string]bool{"api": true, "www": true, "app": true, "admin": true, "static": true, "mail": true, "dashboard": true, "nook": true}
 	types    = map[string]bool{"static": true, "service": true}
+	sources  = map[string]bool{"editors": true, "viewers": true}
 )
 
 // A CronEntry runs `Run` inside the machine on `Schedule`, five-field cron in UTC.
@@ -40,6 +41,9 @@ type Manifest struct {
 	Entry string `json:"entry,omitempty"`
 
 	// Service nooks only. See DESIGN.md §10b.
+	// Source is who may read the run code: "editors" (owner and editors, the default) or
+	// "viewers" (anyone who can open the nook, as a static nook's files always are).
+	Source  string      `json:"source,omitempty"`
 	Run     string      `json:"run,omitempty"`
 	Port    int         `json:"port,omitempty"`
 	Secrets []string    `json:"secrets,omitempty"`
@@ -59,6 +63,10 @@ func Parse(b []byte) (*Manifest, error) {
 	}
 	if m.Type == "static" && m.Entry == "" {
 		m.Entry = "index.html"
+	}
+	// Written out explicitly, so a pull or an export of a service nook states who can read it.
+	if m.Type == "service" && m.Source == "" {
+		m.Source = "editors"
 	}
 	if err := m.Validate(); err != nil {
 		return nil, err
@@ -85,7 +93,7 @@ func (m *Manifest) Validate() error {
 	for _, f := range []struct {
 		name string
 		set  bool
-	}{{"run", m.Run != ""}, {"port", m.Port != 0}, {"secrets", len(m.Secrets) > 0}, {"egress", len(m.Egress) > 0}, {"cron", len(m.Cron) > 0}} {
+	}{{"source", m.Source != ""}, {"run", m.Run != ""}, {"port", m.Port != 0}, {"secrets", len(m.Secrets) > 0}, {"egress", len(m.Egress) > 0}, {"cron", len(m.Cron) > 0}} {
 		if f.set {
 			return fmt.Errorf(`nook.json: %s only applies to a service nook; set "type": "service" or remove it`, f.name)
 		}
@@ -96,6 +104,9 @@ func (m *Manifest) Validate() error {
 func (m *Manifest) validateService() error {
 	if m.Entry != "" {
 		return fmt.Errorf(`nook.json: entry is for static nooks; a service nook serves its own routes from run`)
+	}
+	if m.Source != "" && !sources[m.Source] {
+		return fmt.Errorf(`nook.json: source %q must be "editors" (the default) or "viewers"`, m.Source)
 	}
 	if err := command("run", m.Run); err != nil {
 		return err
@@ -179,4 +190,11 @@ func command(field, s string) error {
 		return fmt.Errorf("nook.json: %s is longer than %d characters", field, maxCommand)
 	}
 	return nil
+}
+
+// SourceVisibleToViewers says whether anyone who can open the nook may read its code. A static
+// nook's files reach every viewer's browser anyway, so they always are; a service nook's do not,
+// and stay with the owner and editors unless the manifest opts in.
+func (m *Manifest) SourceVisibleToViewers() bool {
+	return !m.IsService() || m.Source == "viewers"
 }
