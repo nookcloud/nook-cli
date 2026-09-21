@@ -1,0 +1,47 @@
+<!doctype html>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>shared todo</title>
+<style>
+  body{font:16px system-ui;margin:3rem auto;max-width:28rem;padding:0 1rem;color:#222}
+  form{display:flex;gap:.5rem} input{flex:1;padding:.5rem;font:inherit} button{font:inherit;padding:.5rem .8rem}
+  ul{list-style:none;padding:0} li{display:flex;gap:.6rem;align-items:center;padding:.4rem 0;border-bottom:1px solid #eee}
+  li.done span{text-decoration:line-through;color:#999} li span{flex:1} li small{color:#999}
+  a{color:#666;font-size:.85rem}
+</style>
+<h1>shared todo</h1>
+<p id="who"><small></small></p>
+<form id="f"><input id="t" placeholder="what needs doing?" autofocus><button>add</button></form>
+<ul id="list"></ul>
+<p><a id="csv">export csv</a></p>
+<script src="/_nook/nook.js"></script>
+<script>
+  const list = document.getElementById('list');
+  document.getElementById('csv').href = nook.data.exportUrl('todos', 'csv');
+  async function render() {
+    const { documents } = await nook.data.list('todos');
+    list.innerHTML = '';
+    for (const d of documents) {
+      const li = document.createElement('li');
+      li.className = d.data.done ? 'done' : '';
+      li.innerHTML = `<input type="checkbox" ${d.data.done ? 'checked' : ''}><span></span><small></small><button>×</button>`;
+      li.querySelector('span').textContent = d.data.text;
+      li.querySelector('small').textContent = d.created_by;
+      li.querySelector('input').onchange = e => nook.data.update('todos', d.id, { done: e.target.checked }).then(render);
+      li.querySelector('button').onclick = () => nook.data.remove('todos', d.id).then(render);
+      list.append(li);
+    }
+  }
+  document.getElementById('f').onsubmit = async e => {
+    e.preventDefault();
+    const t = document.getElementById('t');
+    if (!t.value.trim()) return;
+    await nook.data.create('todos', { text: t.value.trim(), done: false });
+    t.value = ''; render();
+  };
+  nook.ready.then(u => {
+    document.querySelector('#who small').textContent = u.signedIn ? `${u.email} · ${u.role}` : 'viewing as a guest';
+    if (!u.canEdit) document.getElementById('f').hidden = true;
+  });
+  render();
+</script>

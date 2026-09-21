@@ -1,0 +1,190 @@
+<!doctype html>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>expenses</title>
+<style>
+  :root { color-scheme: light dark; --fg: #111; --bg: #fff; --muted: #666; --line: #ddd; --accent: #2563eb; --danger: #b91c1c; }
+  @media (prefers-color-scheme: dark) {
+    :root { --fg: #eee; --bg: #121212; --muted: #999; --line: #333; --accent: #60a5fa; --danger: #f87171; }
+  }
+  body { font: 16px/1.4 system-ui, sans-serif; color: var(--fg); background: var(--bg); margin: 1.5rem auto; max-width: 36rem; padding: 0 1rem; }
+  h1 { font-size: 1.4rem; margin: 0 0 .25rem; }
+  h2 { font-size: 1.05rem; margin: 1.5rem 0 .5rem; }
+  small, .muted { color: var(--muted); font-size: .85em; }
+  form { display: flex; flex-wrap: wrap; gap: .5rem; margin: .75rem 0; }
+  input, button, select { font: inherit; padding: .45rem .6rem; border: 1px solid var(--line); border-radius: 6px; background: var(--bg); color: var(--fg); }
+  input { flex: 1 1 8rem; min-width: 0; }
+  button { cursor: pointer; }
+  button.primary { background: var(--accent); color: #fff; border-color: var(--accent); }
+  button.danger { color: var(--danger); border-color: transparent; background: transparent; padding: .2rem .4rem; }
+  ul { list-style: none; padding: 0; margin: 0; }
+  li { display: flex; justify-content: space-between; align-items: flex-start; gap: .5rem; padding: .5rem 0; border-bottom: 1px solid var(--line); }
+  li .amt { font-variant-numeric: tabular-nums; white-space: nowrap; }
+  table { width: 100%; border-collapse: collapse; font-variant-numeric: tabular-nums; }
+  td, th { text-align: left; padding: .3rem .4rem; border-bottom: 1px solid var(--line); }
+  td.num, th.num { text-align: right; }
+  a { color: var(--accent); }
+  #status { color: var(--danger); min-height: 1.2em; }
+  #topbar { display: flex; flex-wrap: wrap; align-items: center; gap: .5rem .75rem; }
+  #namef { margin: 0; flex: 1 1 12rem; }
+  #namef input { flex: 1 1 6rem; }
+</style>
+
+<h1>expenses</h1>
+<div id="topbar">
+  <span id="who" class="muted">loading…</span>
+  <button id="signin" hidden class="primary">sign in</button>
+  <form id="namef" hidden>
+    <input id="namein" placeholder="your display name" maxlength="40">
+    <button>save</button>
+  </form>
+</div>
+<p id="status"></p>
+
+<form id="addf" hidden>
+  <input id="payer" placeholder="who paid (email)" required>
+  <input id="amt" type="number" step="0.01" min="0.01" placeholder="amount" required>
+  <input id="note" placeholder="what for" required>
+  <button class="primary">add</button>
+</form>
+
+<h2>summary</h2>
+<div id="summary" class="muted">no expenses yet</div>
+
+<h2>expenses <small><a id="export" href="#">export csv</a></small></h2>
+<ul id="list"></ul>
+
+<script src="/_nook/nook.js"></script>
+<script>
+(async () => {
+  const $ = id => document.getElementById(id);
+  const COLL = "expenses";
+  let user, expenses = [], nameDoc = null;
+
+  const money = n => "$" + (Math.round(n * 100) / 100).toFixed(2);
+  const esc = s => String(s ?? "").replace(/[&<>"']/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
+  // Only my own display name is knowable: me/ collections are private per viewer.
+  const label = email => (email && user && email === user.email && nameDoc?.data?.name) ? nameDoc.data.name : (email || "unknown");
+  const fail = e => { $("status").textContent = e && e.status ? `error ${e.status}: ${e.message || ""}` : String(e); };
+
+  async function loadAll() {
+    // Page through everything; result order is not documented, so sort client-side.
+    let all = [], cursor;
+    do {
+      const { documents, next } = await nook.data.list(COLL, { limit: 100, cursor });
+      all = all.concat(documents);
+      cursor = next;
+    } while (cursor);
+    all.sort((a, b) => new Date(b.created_at) - new Date(a.created_at));
+    expenses = all;
+  }
+
+  async function loadName() {
+    if (!user.signedIn) return;
+    const { documents } = await nook.data.list("me/settings", { limit: 1 });
+    nameDoc = documents[0] || null;
+    $("namein").value = nameDoc?.data?.name || "";
+  }
+
+  function renderList() {
+    if (!expenses.length) { $("list").innerHTML = "<li class='muted'>nothing yet</li>"; return; }
+    $("list").innerHTML = expenses.map(d => `
+      <li data-id="${esc(d.id)}">
+        <div>
+          <div>${esc(d.data.note)} <small>paid by ${esc(label(d.data.paid_by))}</small></div>
+          <small>added by ${esc(label(d.created_by))} · ${esc(new Date(d.created_at).toLocaleDateString())}</small>
+        </div>
+        <div class="amt">${money(Number(d.data.amount) || 0)}
+          ${user.canEdit ? `<button class="danger" data-del="${esc(d.id)}" title="delete">✕</button>` : ""}
+        </div>
+      </li>`).join("");
+  }
+
+  function renderSummary() {
+    if (!expenses.length) { $("summary").textContent = "no expenses yet"; return; }
+    const paid = {};
+    let total = 0;
+    for (const d of expenses) {
+      const amt = Number(d.data.amount) || 0;
+      const p = d.data.paid_by || d.created_by || "unknown";
+      paid[p] = (paid[p] || 0) + amt;
+      total += amt;
+    }
+    const people = Object.keys(paid);
+    const share = total / people.length;
+    const net = people.map(p => ({ p, bal: paid[p] - share }));
+
+    // Greedy settle-up: biggest debtor pays biggest creditor until both balanced.
+    const debtors = net.filter(x => x.bal < -0.005).map(x => ({ ...x })).sort((a, b) => a.bal - b.bal);
+    const creditors = net.filter(x => x.bal > 0.005).map(x => ({ ...x })).sort((a, b) => b.bal - a.bal);
+    const transfers = [];
+    let i = 0, j = 0;
+    while (i < debtors.length && j < creditors.length) {
+      const amt = Math.min(-debtors[i].bal, creditors[j].bal);
+      transfers.push({ from: debtors[i].p, to: creditors[j].p, amt });
+      debtors[i].bal += amt; creditors[j].bal -= amt;
+      if (debtors[i].bal > -0.005) i++;
+      if (creditors[j].bal < 0.005) j++;
+    }
+
+    $("summary").innerHTML = `
+      <p>total <b>${money(total)}</b> · ${people.length} ${people.length === 1 ? "person" : "people"} · share <b>${money(share)}</b> each</p>
+      <table>
+        <tr><th>person</th><th class="num">paid</th><th class="num">net</th></tr>
+        ${net.map(x => `<tr><td>${esc(label(x.p))}</td><td class="num">${money(paid[x.p])}</td>
+          <td class="num">${x.bal >= 0 ? "+" : "−"}${money(Math.abs(x.bal))}</td></tr>`).join("")}
+      </table>
+      <p>${transfers.length ? transfers.map(t => `${esc(label(t.from))} owes ${esc(label(t.to))} <b>${money(t.amt)}</b>`).join("<br>") : "all settled up"}</p>`;
+  }
+
+  function render() { renderList(); renderSummary(); }
+
+  async function refresh() {
+    try { await loadAll(); render(); } catch (e) { fail(e); }
+  }
+
+  try {
+    user = await nook.ready;
+  } catch (e) { fail(e); return; }
+
+  $("who").textContent = user.signedIn ? `${user.email} · ${user.role}` : "viewing as guest";
+  $("signin").hidden = user.signedIn;
+  $("namef").hidden = !user.signedIn;
+  $("addf").hidden = !user.canEdit;
+  $("payer").value = user.email || "";
+  $("export").href = nook.data.exportUrl(COLL, "csv");
+
+  $("signin").onclick = () => nook.signIn();
+
+  $("namef").onsubmit = async e => {
+    e.preventDefault();
+    const name = $("namein").value.trim();
+    try {
+      if (nameDoc) nameDoc = await nook.data.update("me/settings", nameDoc.id, { name }) || { ...nameDoc, data: { ...nameDoc.data, name } };
+      else nameDoc = await nook.data.create("me/settings", { name });
+      $("who").textContent = `${name || user.email} · ${user.role}`;
+      render();
+    } catch (err) { fail(err); }
+  };
+
+  $("addf").onsubmit = async e => {
+    e.preventDefault();
+    const doc = { paid_by: $("payer").value.trim().toLowerCase(), amount: Number($("amt").value), note: $("note").value.trim() };
+    if (!(doc.amount > 0)) return fail("amount must be positive");
+    try {
+      await nook.data.create(COLL, doc);
+      $("amt").value = ""; $("note").value = "";
+      await refresh();
+    } catch (err) { fail(err); }
+  };
+
+  $("list").addEventListener("click", async e => {
+    const id = e.target.dataset && e.target.dataset.del;
+    if (!id || !confirm("delete this expense?")) return;
+    try { await nook.data.remove(COLL, id); await refresh(); } catch (err) { fail(err); }
+  });
+
+  try { await loadName(); } catch (e) { fail(e); }
+  await refresh();
+})();
+</script>

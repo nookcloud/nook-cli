@@ -1,0 +1,381 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="color-scheme" content="light dark">
+<title>Invoices</title>
+<style>
+  :root {
+    --accent: #0f766e; --accent-soft: #d9f0ec; --accent-ink: #fff;
+    --bg: #f3f4f2; --panel: #fff; --ink: #1c1f1e; --muted: #6b716f; --line: #e1e4e2;
+    --draft: #6b716f; --draft-soft: #ebedec; --sent: #1d4ed8; --sent-soft: #dfe8ff; --paid: #15803d; --paid-soft: #dcf5e5; --late: #b91c1c; --late-soft: #fde4e4;
+    --shadow: 0 1px 2px rgba(0,0,0,.05), 0 12px 32px -16px rgba(0,0,0,.25);
+  }
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --accent: #2dd4bf; --accent-soft: #113b37; --accent-ink: #062622;
+      --bg: #141716; --panel: #1d2120; --ink: #eef0ef; --muted: #9aa19e; --line: #2d3331;
+      --draft: #a4aba8; --draft-soft: #2c3230; --sent: #93b4ff; --sent-soft: #1c2a4d; --paid: #6ee7a0; --paid-soft: #153726; --late: #ff8a8a; --late-soft: #3d1b1b;
+      --shadow: 0 1px 2px rgba(0,0,0,.5), 0 16px 40px -18px rgba(0,0,0,.8);
+    }
+  }
+  * { box-sizing: border-box; }
+  [hidden] { display: none !important; }
+  body { margin: 0; font: 15px/1.45 system-ui, -apple-system, "Segoe UI", Roboto, sans-serif; background: var(--bg); color: var(--ink); }
+  button { font: inherit; color: inherit; cursor: pointer; }
+  input, select, textarea { font: inherit; color: var(--ink); background: var(--panel); border: 1px solid var(--line); border-radius: 8px; padding: 8px 10px; width: 100%; }
+  input:focus, select:focus, textarea:focus, button:focus-visible { outline: 2px solid var(--accent); outline-offset: 1px; }
+  .btn { border: 1px solid var(--line); background: var(--panel); border-radius: 9px; padding: 8px 13px; font-weight: 600; font-size: 14px; }
+  .btn.primary { background: var(--accent); color: var(--accent-ink); border-color: transparent; }
+  .btn.danger { color: var(--late); }
+  .btn:disabled { opacity: .5; cursor: default; }
+
+  .app { display: grid; grid-template-columns: 320px minmax(0, 1fr); min-height: 100vh; }
+  .side { background: var(--panel); border-right: 1px solid var(--line); padding: 22px 18px; display: flex; flex-direction: column; gap: 14px; }
+  .side-head { display: flex; justify-content: space-between; align-items: center; }
+  .side-head h1 { margin: 0; font-size: 20px; letter-spacing: -.02em; }
+  .who { font-size: 13px; color: var(--muted); display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+  .who .role { background: var(--accent-soft); color: var(--accent); border-radius: 999px; padding: 1px 9px; font-size: 12px; font-weight: 600; text-transform: capitalize; }
+  .list { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 6px; }
+  .row { display: flex; justify-content: space-between; align-items: center; gap: 10px; padding: 10px 12px; border-radius: 10px; border: 1px solid transparent; cursor: pointer; }
+  .row:hover { background: var(--bg); }
+  .row.sel { background: var(--accent-soft); border-color: var(--accent); }
+  .row .num { font-weight: 700; font-size: 14px; }
+  .row .client { display: block; font-size: 13px; color: var(--muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 160px; }
+  .row .right { text-align: right; display: flex; flex-direction: column; align-items: flex-end; gap: 4px; }
+  .row .amt { font-variant-numeric: tabular-nums; font-size: 14px; font-weight: 600; }
+  .pill { display: inline-block; font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: .08em; padding: 2px 8px; border-radius: 999px; }
+  .pill.draft { background: var(--draft-soft); color: var(--draft); }
+  .pill.sent { background: var(--sent-soft); color: var(--sent); }
+  .pill.paid { background: var(--paid-soft); color: var(--paid); }
+  .pill.overdue { background: var(--late-soft); color: var(--late); }
+  .side-foot { margin-top: auto; font-size: 13px; color: var(--muted); }
+  .side-foot button { background: none; border: 0; padding: 0; color: var(--muted); text-decoration: underline; font-size: 13px; }
+  .empty { color: var(--muted); font-size: 14px; padding: 10px 4px; }
+
+  .main { padding: 24px; display: flex; flex-direction: column; align-items: center; gap: 16px; }
+  .toolbar { width: 100%; max-width: 820px; display: flex; gap: 8px; flex-wrap: wrap; align-items: center; }
+  .toolbar .spacer { flex: 1; }
+  .contact { width: 100%; max-width: 820px; font-size: 13px; color: var(--muted); }
+
+  /* the printable document: always paper, regardless of theme */
+  .paper { width: 100%; max-width: 820px; background: #fff; color: #1a1a1a; padding: 56px 60px; box-shadow: var(--shadow); border-radius: 4px; font-family: "Iowan Old Style", "Palatino Linotype", Palatino, Georgia, "Times New Roman", serif; line-height: 1.5; font-size: 15px; }
+  .paper .label { font-family: system-ui, -apple-system, sans-serif; font-variant-caps: all-small-caps; letter-spacing: .12em; font-weight: 600; font-size: 13px; color: #7a7a7a; margin-bottom: 4px; }
+  .paper-head { display: flex; justify-content: space-between; gap: 32px; align-items: flex-start; padding-bottom: 28px; border-bottom: 1px solid #e6e6e6; }
+  .paper-head .from strong { font-size: 17px; }
+  .paper-head .from div { color: #444; }
+  .paper-head .addr { white-space: pre-line; }
+  .paper-head .title { text-align: right; }
+  .paper-head h2 { margin: 0; font-size: 34px; font-weight: 500; letter-spacing: .02em; line-height: 1; }
+  .paper-head .num { font-family: system-ui, -apple-system, sans-serif; font-variant-numeric: tabular-nums; color: #555; margin: 8px 0 10px; font-size: 15px; }
+  .badge { display: inline-block; font-family: system-ui, -apple-system, sans-serif; font-size: 11px; font-weight: 700; letter-spacing: .12em; text-transform: uppercase; padding: 4px 10px; border-radius: 4px; border: 1.5px solid currentColor; }
+  .badge.draft { color: #6b6b6b; } .badge.sent { color: #1d4ed8; } .badge.paid { color: #15803d; } .badge.overdue { color: #b91c1c; }
+  .meta { display: grid; grid-template-columns: 2fr 1fr 1fr; gap: 24px; padding: 28px 0; }
+  .meta strong { font-size: 16px; }
+  .meta div div:not(.label) { color: #444; }
+  table.items { width: 100%; border-collapse: collapse; margin-top: 4px; }
+  table.items th { font-family: system-ui, -apple-system, sans-serif; font-variant-caps: all-small-caps; letter-spacing: .12em; font-weight: 600; font-size: 13px; color: #7a7a7a; text-align: left; padding: 8px 0; border-bottom: 1.5px solid #1a1a1a; }
+  table.items td { padding: 12px 0; border-bottom: 1px solid #ececec; vertical-align: top; }
+  table.items th.n, table.items td.n { text-align: right; font-variant-numeric: tabular-nums; white-space: nowrap; padding-left: 16px; }
+  table.items tfoot td { border-bottom: 0; padding: 8px 0; }
+  table.items tfoot td.k { text-align: right; color: #666; font-family: system-ui, -apple-system, sans-serif; font-size: 13px; font-variant-caps: all-small-caps; letter-spacing: .1em; }
+  table.items tfoot tr.total td { font-size: 19px; font-weight: 600; padding-top: 12px; border-top: 1.5px solid #1a1a1a; }
+  table.items tfoot tr.total td.k { color: #1a1a1a; font-size: 14px; font-family: system-ui, -apple-system, sans-serif; }
+  .notes { margin-top: 36px; }
+  .notes p { margin: 0; color: #444; white-space: pre-line; }
+  .paper-foot { margin-top: 44px; padding-top: 16px; border-top: 1px solid #e6e6e6; color: #7a7a7a; font-size: 13px; display: flex; justify-content: space-between; gap: 12px; flex-wrap: wrap; }
+
+  /* editor form */
+  .form { width: 100%; max-width: 820px; background: var(--panel); border: 1px solid var(--line); border-radius: 12px; padding: 20px; display: grid; gap: 14px; }
+  .form h2 { margin: 0; font-size: 18px; }
+  .form .fields { display: grid; grid-template-columns: repeat(4, 1fr); gap: 12px; }
+  .form label { display: grid; gap: 4px; font-size: 12px; font-weight: 600; color: var(--muted); }
+  .form label.wide { grid-column: span 2; }
+  .form label.full { grid-column: 1 / -1; }
+  .items-edit { display: grid; gap: 8px; }
+  .items-edit .ir { display: grid; grid-template-columns: minmax(0, 1fr) 80px 120px 32px; gap: 8px; align-items: center; }
+  .items-edit .ir .x { background: none; border: 0; color: var(--muted); font-size: 18px; line-height: 1; padding: 4px; }
+  .items-edit .ir .x:hover { color: var(--late); }
+  .items-edit .hd { font-size: 12px; font-weight: 600; color: var(--muted); }
+  .form .actions { display: flex; gap: 8px; justify-content: flex-end; flex-wrap: wrap; }
+  .form .actions .spacer { flex: 1; }
+  .profile { grid-template-columns: 1fr; }
+
+  .toast { position: fixed; left: 50%; bottom: 24px; transform: translateX(-50%); background: var(--ink); color: var(--bg); padding: 10px 16px; border-radius: 10px; font-size: 14px; box-shadow: var(--shadow); opacity: 0; pointer-events: none; transition: opacity .15s; max-width: 90vw; }
+  .toast.show { opacity: 1; }
+
+  @media (max-width: 820px) {
+    .app { grid-template-columns: 1fr; }
+    .side { border-right: 0; border-bottom: 1px solid var(--line); }
+    .main { padding: 16px 12px; }
+    .paper { padding: 32px 24px; }
+    .paper-head { flex-direction: column-reverse; }
+    .paper-head .title { text-align: left; }
+    .meta { grid-template-columns: 1fr 1fr; }
+    .form .fields { grid-template-columns: 1fr 1fr; }
+    .items-edit .ir { grid-template-columns: minmax(0, 1fr) 64px 96px 28px; }
+  }
+  @media print {
+    body { background: #fff; }
+    .side, .toolbar, .contact, .form, .toast { display: none !important; }
+    .app { display: block; }
+    .main { padding: 0; display: block; }
+    .paper { box-shadow: none; border-radius: 0; max-width: none; padding: 0; font-size: 13.5px; }
+    @page { margin: 18mm; }
+  }
+</style>
+</head>
+<body>
+<div class="app">
+  <aside class="side">
+    <div class="side-head"><h1>Invoices</h1><button class="btn primary" id="new" hidden>New</button></div>
+    <div class="who" id="who"></div>
+    <ul class="list" id="list"></ul>
+    <div class="side-foot" id="side-foot"></div>
+  </aside>
+  <main class="main">
+    <div class="toolbar" id="toolbar"></div>
+    <form class="form" id="form" hidden autocomplete="off"></form>
+    <form class="form profile" id="pform" hidden autocomplete="off"></form>
+    <article class="paper" id="doc"></article>
+    <div class="contact" id="contact"></div>
+  </main>
+</div>
+<div class="toast" id="toast"></div>
+
+<script src="/_nook/nook.js"></script>
+<script>
+  // Data model
+  //   invoices (shared): { number, client, client_email, issued, due, currency, items: [{desc, qty, rate}], notes, status: draft|sent|paid }
+  //   profile  (shared): one document { name, email, address } for the "From" block.
+  // nook.js only describes the viewer, not the nook's owner, so the sender's details live in `profile`.
+  // Fallbacks: for editors, nook.user; for everyone else, the invoice's created_by email.
+
+  const $ = id => document.getElementById(id);
+  const esc = s => String(s ?? "").replace(/[&<>"']/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
+  const todayISO = () => { const d = new Date(); return [d.getFullYear(), String(d.getMonth() + 1).padStart(2, "0"), String(d.getDate()).padStart(2, "0")].join("-"); };
+  const fmtDate = iso => { const m = /^(\d{4})-(\d{2})-(\d{2})$/.exec(iso || ""); if (!m) return esc(iso || "—"); return new Date(+m[1], +m[2] - 1, +m[3]).toLocaleDateString(undefined, { year: "numeric", month: "long", day: "numeric" }); };
+  function money(n, cur) {
+    n = Number(n) || 0;
+    try { return new Intl.NumberFormat(undefined, { style: "currency", currency: cur || "USD" }).format(n); }
+    catch (e) { return (cur || "") + " " + n.toFixed(2); }
+  }
+  const items = inv => Array.isArray(inv.items) ? inv.items : [];
+  const total = inv => items(inv).reduce((s, it) => s + (Number(it.qty) || 0) * (Number(it.rate) || 0), 0);
+  const STATUSES = ["draft", "sent", "paid"];
+  const status = inv => STATUSES.includes(inv.status) ? inv.status : "draft";
+  const display = inv => status(inv) === "sent" && String(inv.due || "") < todayISO() ? "overdue" : status(inv);
+
+  let toastTimer;
+  function toast(msg) { const t = $("toast"); t.textContent = msg; t.classList.add("show"); clearTimeout(toastTimer); toastTimer = setTimeout(() => t.classList.remove("show"), 3500); }
+
+  async function listAll(col, opts = {}) {
+    let all = [], cursor = "";
+    do { const r = await nook.data.list(col, { limit: 200, cursor, ...opts }); all.push(...r.documents); cursor = r.next; } while (cursor);
+    return all;
+  }
+
+  const S = { user: null, invoices: [], profile: null, selected: null, editing: null };
+
+  async function load() {
+    const [invoices, prof] = await Promise.all([listAll("invoices", { order: "desc" }), nook.data.list("profile", { limit: 1 })]);
+    invoices.sort((a, b) => String(b.data.issued || "").localeCompare(String(a.data.issued || "")) || b.created_at.localeCompare(a.created_at));
+    S.invoices = invoices; S.profile = prof.documents[0] || null;
+    const wanted = location.hash.slice(1);
+    if (!S.invoices.some(d => d.id === S.selected)) S.selected = (S.invoices.find(d => d.id === wanted) || S.invoices[0] || {}).id || null;
+  }
+
+  const selected = () => S.invoices.find(d => d.id === S.selected) || null;
+  const canEdit = () => !!(S.user && S.user.canEdit);
+
+  function fromInfo(doc) {
+    if (S.profile && S.profile.data.name) return S.profile.data;
+    if (canEdit()) return { name: S.user.name || S.user.email, email: S.user.email, address: "" };
+    return { name: doc ? doc.created_by : "", email: doc ? doc.created_by : "", address: "" };
+  }
+
+  function renderSide() {
+    const u = S.user;
+    if (!u || !u.signedIn) {
+      $("who").innerHTML = `<span>Viewing as a guest</span><button class="btn" id="signin">Sign in</button>`;
+      $("signin").onclick = () => nook.signIn();
+    } else {
+      $("who").innerHTML = `<span>${esc(u.name || u.email)}</span><span class="role">${esc(u.role || "viewer")}</span>`;
+    }
+    $("new").hidden = !canEdit();
+    $("side-foot").innerHTML = canEdit() ? `<button id="edit-profile">Edit your sender details</button>` : "";
+    if (canEdit()) $("edit-profile").onclick = openProfile;
+    if (!S.invoices.length) {
+      $("list").innerHTML = `<li class="empty">${canEdit() ? "No invoices yet. Create your first one." : "No invoices to show yet."}</li>`;
+      return;
+    }
+    $("list").innerHTML = S.invoices.map(d => {
+      const inv = d.data, st = display(inv);
+      return `<li class="row ${d.id === S.selected ? "sel" : ""}" data-id="${esc(d.id)}">
+        <div><div class="num">${esc(inv.number || "Untitled")}</div><span class="client">${esc(inv.client || "—")}</span></div>
+        <div class="right"><span class="pill ${st}">${st}</span><span class="amt">${money(total(inv), inv.currency)}</span></div>
+      </li>`;
+    }).join("");
+  }
+
+  function renderDoc() {
+    const d = selected();
+    const doc = $("doc"), tb = $("toolbar"), ct = $("contact");
+    if (!d) {
+      doc.innerHTML = `<div class="empty">${canEdit() ? "Pick an invoice on the left, or create a new one." : "Nothing here yet."}</div>`;
+      tb.innerHTML = ""; ct.innerHTML = ""; return;
+    }
+    const inv = d.data, st = status(inv), shown = display(inv), from = fromInfo(d);
+    const rows = items(inv).map(it => `<tr><td>${esc(it.desc)}</td><td class="n">${esc(Number(it.qty) || 0)}</td><td class="n">${money(it.rate, inv.currency)}</td><td class="n">${money((Number(it.qty) || 0) * (Number(it.rate) || 0), inv.currency)}</td></tr>`).join("");
+    doc.innerHTML = `
+      <header class="paper-head">
+        <div class="from">
+          <div class="label">From</div>
+          <strong>${esc(from.name)}</strong>
+          <div>${esc(from.email)}</div>
+          ${from.address ? `<div class="addr">${esc(from.address)}</div>` : ""}
+        </div>
+        <div class="title">
+          <h2>Invoice</h2>
+          <div class="num">${esc(inv.number || "—")}</div>
+          <span class="badge ${shown}">${shown}</span>
+        </div>
+      </header>
+      <section class="meta">
+        <div><div class="label">Billed to</div><strong>${esc(inv.client || "—")}</strong><div>${esc(inv.client_email || "")}</div></div>
+        <div><div class="label">Issued</div><div>${fmtDate(inv.issued)}</div></div>
+        <div><div class="label">${st === "paid" ? "Paid" : "Due"}</div><div>${fmtDate(inv.due)}</div></div>
+      </section>
+      <table class="items">
+        <thead><tr><th>Description</th><th class="n">Qty</th><th class="n">Rate</th><th class="n">Amount</th></tr></thead>
+        <tbody>${rows || `<tr><td colspan="4" style="color:#888">No line items.</td></tr>`}</tbody>
+        <tfoot>
+          <tr><td colspan="3" class="k">Subtotal</td><td class="n">${money(total(inv), inv.currency)}</td></tr>
+          <tr class="total"><td colspan="3" class="k">${st === "paid" ? "Total paid" : "Total due"}</td><td class="n">${money(total(inv), inv.currency)}</td></tr>
+        </tfoot>
+      </table>
+      ${inv.notes ? `<section class="notes"><div class="label">Notes</div><p>${esc(inv.notes)}</p></section>` : ""}
+      <footer class="paper-foot"><span>Thank you for your business.</span><span>${esc(from.email)}</span></footer>`;
+
+    let buttons = "";
+    if (canEdit()) {
+      buttons += `<button class="btn" id="b-edit">Edit</button>`;
+      if (st === "draft") buttons += `<button class="btn primary" id="b-sent">Mark as sent</button>`;
+      if (st === "sent") buttons += `<button class="btn primary" id="b-paid">Mark as paid</button>`;
+      if (st === "paid") buttons += `<button class="btn" id="b-unpaid">Mark as unpaid</button>`;
+      buttons += `<button class="btn danger" id="b-del">Delete</button>`;
+    }
+    tb.innerHTML = `${buttons}<span class="spacer"></span><button class="btn" id="b-print">Print</button>`;
+    $("b-print").onclick = () => window.print();
+    if (canEdit()) {
+      $("b-edit").onclick = () => openForm(d);
+      $("b-del").onclick = async () => { if (confirm(`Delete ${inv.number || "this invoice"}?`)) { try { await nook.data.remove("invoices", d.id); S.selected = null; } catch (e) { toast("Could not delete: " + e.message); } refresh(); } };
+      const set = (id, status) => { const b = $(id); if (b) b.onclick = async () => { try { await nook.data.update("invoices", d.id, { status }); } catch (e) { toast("Could not update: " + e.message); } refresh(); }; };
+      set("b-sent", "sent"); set("b-paid", "paid"); set("b-unpaid", "sent");
+      ct.innerHTML = "";
+    } else {
+      ct.innerHTML = st === "paid" ? `Paid. Thank you!` : `Need to mark this as paid or ask a question? Contact ${esc(from.name)} at <a href="mailto:${esc(from.email)}">${esc(from.email)}</a>.`;
+    }
+  }
+
+  function render() { renderSide(); renderDoc(); }
+
+  async function refresh() {
+    try { await load(); } catch (e) { toast("Could not load: " + e.message); }
+    render();
+  }
+
+  function select(id) {
+    S.selected = id; closeForm();
+    history.replaceState(null, "", "#" + id);
+    render();
+  }
+
+  // ---- invoice form ----
+  function nextNumber() {
+    const y = new Date().getFullYear();
+    const n = S.invoices.filter(d => String(d.data.number || "").startsWith("INV-" + y)).length + 1;
+    return `INV-${y}-${String(n).padStart(3, "0")}`;
+  }
+  function itemRow(it = {}) {
+    return `<div class="ir"><input class="i-desc" placeholder="Description" value="${esc(it.desc)}" required><input class="i-qty" type="number" min="0" step="any" placeholder="Qty" value="${esc(it.qty ?? 1)}"><input class="i-rate" type="number" min="0" step="0.01" placeholder="Rate" value="${esc(it.rate ?? "")}"><button type="button" class="x" title="Remove">&times;</button></div>`;
+  }
+  function openForm(doc) {
+    const inv = doc ? doc.data : { number: nextNumber(), issued: todayISO(), due: (() => { const d = new Date(); d.setDate(d.getDate() + 30); return [d.getFullYear(), String(d.getMonth() + 1).padStart(2, "0"), String(d.getDate()).padStart(2, "0")].join("-"); })(), currency: "USD", status: "draft", items: [{ qty: 1 }] };
+    S.editing = doc ? doc.id : "new";
+    const f = $("form");
+    f.innerHTML = `
+      <h2>${doc ? "Edit " + esc(inv.number) : "New invoice"}</h2>
+      <div class="fields">
+        <label>Number <input id="f-number" value="${esc(inv.number)}" required></label>
+        <label class="wide">Client <input id="f-client" value="${esc(inv.client)}" required placeholder="Company or person"></label>
+        <label>Status <select id="f-status">${STATUSES.map(s => `<option value="${s}" ${status(inv) === s ? "selected" : ""}>${s}</option>`).join("")}</select></label>
+        <label class="wide">Client email <input id="f-email" type="email" value="${esc(inv.client_email)}" placeholder="billing@client.com"></label>
+        <label>Issued <input id="f-issued" type="date" value="${esc(inv.issued)}" required></label>
+        <label>Due <input id="f-due" type="date" value="${esc(inv.due)}" required></label>
+        <label>Currency <input id="f-currency" value="${esc(inv.currency || "USD")}" maxlength="3" pattern="[A-Za-z]{3}" title="Three-letter code, e.g. USD"></label>
+      </div>
+      <div class="items-edit" id="f-items">
+        <div class="ir hd"><span>Line items</span><span>Qty</span><span>Rate</span><span></span></div>
+        ${items(inv).map(itemRow).join("")}
+      </div>
+      <div><button type="button" class="btn" id="f-add">Add line</button></div>
+      <label style="display:grid;gap:4px;font-size:12px;font-weight:600;color:var(--muted)">Notes <textarea id="f-notes" rows="3" placeholder="Payment terms, thanks, references">${esc(inv.notes)}</textarea></label>
+      <div class="actions"><span class="spacer"></span><button type="button" class="btn" id="f-cancel">Cancel</button><button class="btn primary">Save</button></div>`;
+    f.hidden = false; $("doc").hidden = true; $("toolbar").hidden = true; $("pform").hidden = true;
+    $("f-add").onclick = () => $("f-items").insertAdjacentHTML("beforeend", itemRow({ qty: 1 }));
+    $("f-items").onclick = e => { const x = e.target.closest("button.x"); if (x) x.closest(".ir").remove(); };
+    $("f-cancel").onclick = () => { closeForm(); render(); };
+    f.onsubmit = async e => {
+      e.preventDefault();
+      const rows = [...f.querySelectorAll(".ir:not(.hd)")].map(r => ({ desc: r.querySelector(".i-desc").value.trim(), qty: Number(r.querySelector(".i-qty").value) || 0, rate: Number(r.querySelector(".i-rate").value) || 0 })).filter(r => r.desc);
+      const data = {
+        number: $("f-number").value.trim(), client: $("f-client").value.trim(), client_email: $("f-email").value.trim().toLowerCase(),
+        issued: $("f-issued").value, due: $("f-due").value, currency: $("f-currency").value.trim().toUpperCase() || "USD",
+        items: rows, notes: $("f-notes").value.trim(), status: $("f-status").value,
+      };
+      try {
+        const saved = doc ? await nook.data.update("invoices", doc.id, data) : await nook.data.create("invoices", data);
+        S.selected = saved.id; closeForm(); history.replaceState(null, "", "#" + saved.id);
+      } catch (err) { toast("Could not save: " + err.message); return; }
+      refresh();
+    };
+    f.scrollIntoView({ block: "start" });
+  }
+  function closeForm() { S.editing = null; $("form").hidden = true; $("pform").hidden = true; $("doc").hidden = false; $("toolbar").hidden = false; }
+
+  // ---- sender profile form ----
+  function openProfile() {
+    const p = S.profile ? S.profile.data : { name: S.user.name || "", email: S.user.email || "", address: "" };
+    const f = $("pform");
+    f.innerHTML = `
+      <h2>Sender details</h2>
+      <div class="fields" style="grid-template-columns:1fr 1fr">
+        <label>Name <input id="p-name" value="${esc(p.name)}" required></label>
+        <label>Email <input id="p-email" type="email" value="${esc(p.email)}" required></label>
+        <label class="full">Address <textarea id="p-address" rows="3">${esc(p.address)}</textarea></label>
+      </div>
+      <div class="actions"><span class="spacer"></span><button type="button" class="btn" id="p-cancel">Cancel</button><button class="btn primary">Save</button></div>`;
+    f.hidden = false; $("form").hidden = true; $("doc").hidden = true; $("toolbar").hidden = true;
+    $("p-cancel").onclick = () => { closeForm(); render(); };
+    f.onsubmit = async e => {
+      e.preventDefault();
+      const data = { name: $("p-name").value.trim(), email: $("p-email").value.trim().toLowerCase(), address: $("p-address").value.trim() };
+      try { S.profile ? await nook.data.update("profile", S.profile.id, data) : await nook.data.create("profile", data); closeForm(); }
+      catch (err) { toast("Could not save: " + err.message); return; }
+      refresh();
+    };
+  }
+
+  $("list").addEventListener("click", e => { const r = e.target.closest("li[data-id]"); if (r) select(r.dataset.id); });
+  $("new").onclick = () => openForm(null);
+  window.addEventListener("hashchange", () => { const id = location.hash.slice(1); if (S.invoices.some(d => d.id === id)) select(id); });
+
+  (async () => {
+    try { S.user = await nook.ready; } catch (e) { S.user = null; }
+    await refresh();
+  })();
+</script>
+</body>
+</html>

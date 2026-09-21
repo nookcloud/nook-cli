@@ -1,0 +1,400 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="color-scheme" content="light dark">
+<title>Q4 launch pool</title>
+<style>
+  :root {
+    --accent: #6d4aff; --accent-ink: #fff; --accent-soft: #eee9ff; --accent-deep: #4b2fd6;
+    --bg: #f5f4fb; --card: #fff; --ink: #17162a; --muted: #6b6a83; --line: #e4e2f0;
+    --good: #14904f; --good-soft: #e1f6ea; --bad: #cf3f3f; --bad-soft: #fdeaea; --warn: #a86a12; --warn-soft: #fff3dc;
+    --radius: 16px; --shadow: 0 1px 2px rgba(20,18,50,.05), 0 10px 28px -14px rgba(20,18,50,.22);
+  }
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --accent: #9d86ff; --accent-ink: #120c30; --accent-soft: #2a2354; --accent-deep: #7b62f5;
+      --bg: #111120; --card: #1b1b2d; --ink: #ecebf6; --muted: #9c9bb6; --line: #2d2d45;
+      --good: #3fd287; --good-soft: #163a29; --bad: #ff7a7a; --bad-soft: #3b1d1d; --warn: #e9b85a; --warn-soft: #3a2e14;
+      --shadow: 0 1px 2px rgba(0,0,0,.4), 0 10px 28px -14px rgba(0,0,0,.7);
+    }
+  }
+  * { box-sizing: border-box; }
+  [hidden] { display: none !important; }
+  body { margin: 0; font: 15px/1.45 system-ui, -apple-system, "Segoe UI", Roboto, sans-serif; background: var(--bg); color: var(--ink); }
+  button { font: inherit; color: inherit; cursor: pointer; }
+  button:disabled { cursor: default; }
+  input, select { font: inherit; color: var(--ink); background: var(--card); border: 1px solid var(--line); border-radius: 8px; padding: 8px 10px; }
+  input:focus, select:focus, button:focus-visible { outline: 2px solid var(--accent); outline-offset: 1px; }
+
+  /* header band */
+  .top { background: linear-gradient(135deg, var(--accent-deep), var(--accent)); color: var(--accent-ink); padding: 28px 20px 56px; }
+  .top-inner { max-width: 1120px; margin: 0 auto; display: flex; flex-wrap: wrap; gap: 20px; align-items: flex-start; justify-content: space-between; }
+  .brand { display: flex; gap: 14px; align-items: center; }
+  .logo { width: 48px; height: 48px; border-radius: 14px; background: rgba(255,255,255,.18); display: grid; place-items: center; font-weight: 800; font-size: 20px; letter-spacing: -.02em; }
+  .brand h1 { margin: 0; font-size: 26px; letter-spacing: -.02em; line-height: 1.15; }
+  .brand p { margin: 2px 0 0; opacity: .85; font-size: 14px; }
+  .you { display: flex; align-items: center; gap: 10px; font-size: 14px; }
+  .you .role { background: rgba(255,255,255,.2); border-radius: 999px; padding: 2px 10px; font-size: 12px; font-weight: 600; text-transform: capitalize; }
+  .btn { border: 0; border-radius: 10px; padding: 9px 14px; font-weight: 600; background: var(--accent); color: var(--accent-ink); }
+  .btn.light { background: rgba(255,255,255,.92); color: var(--accent-deep); }
+  .btn.ghost { background: transparent; border: 1px solid var(--line); color: var(--ink); font-weight: 500; }
+  .btn.small { padding: 6px 10px; font-size: 13px; }
+
+  .wrap { max-width: 1120px; margin: -34px auto 60px; padding: 0 20px; }
+  .stats { display: grid; grid-template-columns: repeat(3, 1fr); gap: 12px; margin-bottom: 24px; }
+  .stat { background: var(--card); border-radius: var(--radius); box-shadow: var(--shadow); padding: 14px 18px; }
+  .stat .k { font-size: 12px; font-weight: 600; text-transform: uppercase; letter-spacing: .08em; color: var(--muted); }
+  .stat .v { font-size: 28px; font-weight: 800; letter-spacing: -.02em; line-height: 1.2; margin-top: 2px; }
+  .stat .v small { font-size: 13px; font-weight: 500; color: var(--muted); margin-left: 4px; }
+
+  .note { background: var(--warn-soft); color: var(--warn); border-radius: 12px; padding: 10px 14px; font-size: 14px; margin-bottom: 20px; }
+
+  .layout { display: grid; grid-template-columns: minmax(0, 1fr) 330px; gap: 24px; align-items: start; }
+  .grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); gap: 16px; }
+  h2.section { font-size: 13px; text-transform: uppercase; letter-spacing: .1em; color: var(--muted); margin: 0 0 12px; }
+
+  /* question card */
+  .card { background: var(--card); border-radius: var(--radius); box-shadow: var(--shadow); padding: 18px; display: flex; flex-direction: column; gap: 12px; border-top: 4px solid var(--accent); }
+  .card.locked { border-top-color: var(--muted); }
+  .card.resolved { border-top-color: var(--good); }
+  .card.resolved.miss { border-top-color: var(--bad); }
+  .card-head { display: flex; justify-content: space-between; align-items: center; font-size: 12px; font-weight: 600; }
+  .card-head .pts { background: var(--accent-soft); color: var(--accent-deep); border-radius: 999px; padding: 3px 9px; }
+  @media (prefers-color-scheme: dark) { .card-head .pts { color: var(--accent); } }
+  .state { color: var(--muted); text-transform: uppercase; letter-spacing: .06em; }
+  .state.open { color: var(--accent); }
+  .state.resolved { color: var(--good); }
+  .card h3 { margin: 0; font-size: 17px; line-height: 1.3; letter-spacing: -.01em; }
+  .options { display: grid; gap: 8px; }
+  .opt { display: flex; justify-content: space-between; align-items: center; gap: 8px; text-align: left; width: 100%; padding: 10px 12px; border-radius: 10px; border: 1.5px solid var(--line); background: transparent; transition: transform .08s, border-color .1s, background .1s; }
+  .opt:not(:disabled):hover { border-color: var(--accent); transform: translateY(-1px); }
+  .opt.picked { border-color: var(--accent); background: var(--accent-soft); font-weight: 600; }
+  .opt.correct { border-color: var(--good); background: var(--good-soft); font-weight: 600; }
+  .opt.wrong { border-color: var(--bad); background: var(--bad-soft); }
+  .opt:disabled { cursor: not-allowed; }
+  .opt:disabled:not(.picked):not(.correct):not(.wrong) { opacity: .55; }
+  .opt small { color: var(--muted); font-size: 12px; font-weight: 500; white-space: nowrap; }
+  .opt .mark { display: inline-block; width: 18px; height: 18px; border-radius: 50%; border: 1.5px solid var(--line); flex: none; }
+  .opt.picked .mark { border-color: var(--accent); background: var(--accent); box-shadow: inset 0 0 0 3px var(--card); }
+  .opt.correct .mark { border-color: var(--good); background: var(--good); box-shadow: inset 0 0 0 3px var(--card); }
+  .opt.wrong .mark { border-color: var(--bad); background: var(--bad); box-shadow: inset 0 0 0 3px var(--card); }
+  .opt .lbl { flex: 1; display: flex; align-items: center; gap: 10px; }
+  .card-foot { display: flex; justify-content: space-between; align-items: center; gap: 10px; flex-wrap: wrap; font-size: 13px; color: var(--muted); margin-top: auto; }
+  .card-foot .hit { color: var(--good); font-weight: 700; }
+  .card-foot .miss { color: var(--bad); font-weight: 600; }
+  .admin { display: flex; gap: 8px; align-items: center; }
+  .admin select { padding: 5px 8px; font-size: 13px; }
+  .link { background: none; border: 0; padding: 0; color: var(--muted); text-decoration: underline; font-size: 13px; }
+  .link.danger:hover { color: var(--bad); }
+
+  /* leaderboard */
+  .board { background: var(--card); border-radius: var(--radius); box-shadow: var(--shadow); padding: 18px; position: sticky; top: 16px; }
+  .board table { width: 100%; border-collapse: collapse; font-size: 14px; }
+  .board th { text-align: left; font-size: 11px; text-transform: uppercase; letter-spacing: .08em; color: var(--muted); padding: 4px 6px 8px; border-bottom: 1px solid var(--line); font-weight: 600; }
+  .board th.n, .board td.n { text-align: right; font-variant-numeric: tabular-nums; }
+  .board td { padding: 9px 6px; border-bottom: 1px solid var(--line); }
+  .board tr:last-child td { border-bottom: 0; }
+  .board tr.me td { background: var(--accent-soft); }
+  .board tr.me td:first-child { border-radius: 8px 0 0 8px; }
+  .board tr.me td:last-child { border-radius: 0 8px 8px 0; }
+  .rank { display: inline-grid; place-items: center; width: 24px; height: 24px; border-radius: 50%; background: var(--line); font-size: 12px; font-weight: 700; }
+  .rank.r1 { background: #f6c945; color: #4a3600; }
+  .rank.r2 { background: #d5d7de; color: #2b2d33; }
+  .rank.r3 { background: #e0a370; color: #3d2208; }
+  .board .who { font-weight: 600; }
+  .board .who small { display: block; font-weight: 400; color: var(--muted); font-size: 12px; }
+  .board td.n.pts { font-weight: 800; color: var(--accent-deep); }
+  @media (prefers-color-scheme: dark) { .board td.n.pts { color: var(--accent); } }
+  .empty { color: var(--muted); font-size: 14px; padding: 12px 0; }
+
+  /* editor form */
+  .add { background: var(--card); border-radius: var(--radius); box-shadow: var(--shadow); padding: 16px 18px; margin-bottom: 20px; display: grid; gap: 10px; grid-template-columns: 2fr 2fr 1fr 1fr auto; align-items: end; }
+  .add label { display: grid; gap: 4px; font-size: 12px; font-weight: 600; color: var(--muted); }
+  .add label input { width: 100%; }
+  .add .btn { height: 38px; }
+
+  .toast { position: fixed; left: 50%; bottom: 24px; transform: translateX(-50%); background: var(--ink); color: var(--bg); padding: 10px 16px; border-radius: 10px; font-size: 14px; box-shadow: var(--shadow); opacity: 0; pointer-events: none; transition: opacity .15s; max-width: 90vw; }
+  .toast.show { opacity: 1; }
+
+  @media (max-width: 960px) { .layout { grid-template-columns: 1fr; } .board { position: static; } .add { grid-template-columns: 1fr 1fr; } .add .btn { grid-column: 1 / -1; } }
+  @media (max-width: 520px) { .stats { grid-template-columns: 1fr 1fr 1fr; gap: 8px; } .stat { padding: 12px; } .stat .v { font-size: 22px; } .top { padding-bottom: 48px; } }
+</style>
+</head>
+<body>
+
+<header class="top">
+  <div class="top-inner">
+    <div class="brand">
+      <div class="logo">Q4</div>
+      <div><h1>Q4 launch pool</h1><p>Call the shots. Points to the bold, bragging rights to the right.</p></div>
+    </div>
+    <div class="you" id="you"></div>
+  </div>
+</header>
+
+<div class="wrap">
+  <div class="stats">
+    <div class="stat"><div class="k">Your points</div><div class="v" id="s-points">0</div></div>
+    <div class="stat"><div class="k">Your rank</div><div class="v" id="s-rank">&ndash;</div></div>
+    <div class="stat"><div class="k">Correct calls</div><div class="v" id="s-correct">0</div></div>
+  </div>
+
+  <div class="note" id="note" hidden></div>
+
+  <form class="add" id="add" hidden autocomplete="off">
+    <label>Question <input id="q-title" required maxlength="140" placeholder="Does the launch post hit the HN front page?"></label>
+    <label>Options, comma-separated <input id="q-options" required placeholder="Yes, No"></label>
+    <label>Closes <input id="q-closes" type="date" required></label>
+    <label>Points <input id="q-points" type="number" min="1" max="1000" value="20" required></label>
+    <button class="btn">Add question</button>
+  </form>
+
+  <div class="layout">
+    <section>
+      <h2 class="section">Questions</h2>
+      <div class="grid" id="questions"></div>
+    </section>
+    <aside class="board">
+      <h2 class="section">Leaderboard</h2>
+      <div id="board"></div>
+    </aside>
+  </div>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<script src="/_nook/nook.js"></script>
+<script>
+  // Data model
+  //   questions (shared): { key, title, options[], closes: "YYYY-MM-DD", result: string|null, points }
+  //   me/picks (private): { question_key, question_id, choice }
+  //   entries  (shared):  { question_key, question_id, choice, who_name, who_email }
+  // Picks and entries join to questions on `key` rather than the document id, because seed data
+  // is created before ids exist. question_id is stored too when known but never used for joins.
+  // Viewers cannot write shared collections, so their picks live only in me/picks and they do not
+  // appear on the leaderboard until an editor grants them the editor role.
+
+  const $ = id => document.getElementById(id);
+  const esc = s => String(s ?? "").replace(/[&<>"']/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
+  const todayISO = () => { const d = new Date(); return [d.getFullYear(), String(d.getMonth() + 1).padStart(2, "0"), String(d.getDate()).padStart(2, "0")].join("-"); };
+  const fmtDate = iso => { const m = /^(\d{4})-(\d{2})-(\d{2})$/.exec(iso || ""); if (!m) return esc(iso || "?"); return new Date(+m[1], +m[2] - 1, +m[3]).toLocaleDateString(undefined, { month: "short", day: "numeric" }); };
+  const hasResult = q => q.data.result !== null && q.data.result !== undefined && q.data.result !== "";
+  const isLocked = q => hasResult(q) || todayISO() > String(q.data.closes || "");
+  const options = q => Array.isArray(q.data.options) ? q.data.options.map(String) : [];
+
+  let toastTimer;
+  function toast(msg) { const t = $("toast"); t.textContent = msg; t.classList.add("show"); clearTimeout(toastTimer); toastTimer = setTimeout(() => t.classList.remove("show"), 3500); }
+
+  async function listAll(col, opts = {}) {
+    let all = [], cursor = "";
+    do { const r = await nook.data.list(col, { limit: 200, cursor, ...opts }); all.push(...r.documents); cursor = r.next; } while (cursor);
+    return all;
+  }
+
+  const S = { user: null, questions: [], entries: [], picks: [], busy: false };
+
+  async function load() {
+    const [questions, entries, picks] = await Promise.all([
+      listAll("questions"),
+      listAll("entries"),
+      S.user && S.user.signedIn ? listAll("me/picks").catch(() => []) : Promise.resolve([]),
+    ]);
+    // Open questions first (soonest-closing on top), then closed and resolved ones.
+    questions.sort((a, b) => (isLocked(a) - isLocked(b)) || String(a.data.closes).localeCompare(String(b.data.closes)) || a.created_at.localeCompare(b.created_at));
+    S.questions = questions; S.entries = entries; S.picks = picks;
+  }
+
+  const myPick = key => S.picks.find(p => p.data.question_key === key);
+
+  // Latest entry per person per question wins (entries are listed oldest-first, so later overwrites).
+  function latestEntries() {
+    const m = new Map();
+    for (const e of S.entries) m.set((e.data.who_email || e.created_by) + "|" + e.data.question_key, e);
+    return [...m.values()];
+  }
+
+  function leaderboard() {
+    const byKey = Object.fromEntries(S.questions.map(q => [q.data.key, q]));
+    const people = new Map();
+    for (const e of latestEntries()) {
+      const email = String(e.data.who_email || e.created_by || "").toLowerCase();
+      const p = people.get(email) || { email, name: e.data.who_name || email, picks: 0, correct: 0, points: 0 };
+      p.picks++;
+      const q = byKey[e.data.question_key];
+      if (q && hasResult(q) && String(q.data.result) === String(e.data.choice)) { p.correct++; p.points += Number(q.data.points) || 0; }
+      people.set(email, p);
+    }
+    const rows = [...people.values()].sort((a, b) => b.points - a.points || b.correct - a.correct || a.name.localeCompare(b.name));
+    rows.forEach((r, i) => { r.rank = i > 0 && rows[i - 1].points === r.points && rows[i - 1].correct === r.correct ? rows[i - 1].rank : i + 1; });
+    return rows;
+  }
+
+  function myStats() {
+    let points = 0, correct = 0, resolved = 0;
+    for (const q of S.questions) {
+      if (!hasResult(q)) continue;
+      resolved++;
+      const p = myPick(q.data.key);
+      if (p && String(p.data.choice) === String(q.data.result)) { correct++; points += Number(q.data.points) || 0; }
+    }
+    return { points, correct, resolved };
+  }
+
+  function renderHeader() {
+    const u = S.user;
+    if (!u || !u.signedIn) {
+      $("you").innerHTML = `<span>Watching as a guest</span><button class="btn light" id="signin">Sign in to play</button>`;
+      $("signin").onclick = () => nook.signIn();
+    } else {
+      $("you").innerHTML = `<span>${esc(u.name || u.email)}</span><span class="role">${esc(u.role || "viewer")}</span>`;
+    }
+    const st = myStats();
+    const rows = leaderboard();
+    const mine = u && u.email ? rows.find(r => r.email === u.email) : null;
+    $("s-points").textContent = st.points;
+    $("s-correct").innerHTML = `${st.correct}<small>of ${st.resolved}</small>`;
+    $("s-rank").innerHTML = mine ? `#${mine.rank}<small>of ${rows.length}</small>` : `&ndash;`;
+
+    const note = $("note");
+    if (u && u.signedIn && !u.canEdit) {
+      note.hidden = false;
+      note.textContent = "Your picks are saved privately and still score above. To appear on the leaderboard, ask the pool owner to share this nook with you as an editor.";
+    } else note.hidden = true;
+    $("add").hidden = !(u && u.canEdit);
+  }
+
+  function renderQuestions() {
+    const u = S.user, canEdit = !!(u && u.canEdit);
+    const counts = {};
+    for (const e of latestEntries()) { const k = e.data.question_key + "|" + e.data.choice; counts[k] = (counts[k] || 0) + 1; }
+    if (!S.questions.length) {
+      $("questions").innerHTML = `<div class="empty">No questions yet.${canEdit ? " Add the first one above." : " Check back once the editors post some."}</div>`;
+      return;
+    }
+    $("questions").innerHTML = S.questions.map(q => {
+      const key = String(q.data.key ?? q.id), opts = options(q), locked = isLocked(q), resolved = hasResult(q);
+      const pick = myPick(key), mine = pick ? String(pick.data.choice) : null;
+      const result = resolved ? String(q.data.result) : null;
+      const hit = resolved && mine !== null && mine === result, miss = resolved && mine !== null && mine !== result;
+      const pts = Number(q.data.points) || 0;
+      const state = resolved ? `<span class="state resolved">Resolved</span>` : locked ? `<span class="state">Closed ${fmtDate(q.data.closes)}</span>` : `<span class="state open">Closes ${fmtDate(q.data.closes)}</span>`;
+      const buttons = opts.map((o, i) => {
+        const cls = ["opt"];
+        if (mine === o) cls.push("picked");
+        if (resolved && o === result) cls.push("correct"); else if (resolved && mine === o) cls.push("wrong");
+        const n = counts[key + "|" + o] || 0;
+        const disabled = locked || S.busy; // anonymous clicks fall through to sign-in
+        return `<button class="${cls.join(" ")}" data-pick="${esc(key)}" data-idx="${i}" ${disabled ? "disabled" : ""}><span class="lbl"><span class="mark"></span>${esc(o)}</span>${locked ? `<small>${n} pick${n === 1 ? "" : "s"}</small>` : ""}</button>`;
+      }).join("");
+      let foot;
+      if (hit) foot = `<span class="hit">You called it &middot; +${pts} pts</span>`;
+      else if (miss) foot = `<span class="miss">You picked ${esc(mine)} &middot; 0 pts</span>`;
+      else if (resolved) foot = `<span>No pick &middot; result: ${esc(result)}</span>`;
+      else if (locked) foot = mine !== null ? `<span>You picked ${esc(mine)} &middot; awaiting result</span>` : `<span>Closed without a pick</span>`;
+      else foot = mine !== null ? `<span>Your pick: <b>${esc(mine)}</b>${canEdit ? "" : " (private)"}</span>` : `<span>Pick one &middot; ${pts} pts on the line</span>`;
+      let admin = "";
+      if (canEdit) {
+        admin = resolved
+          ? `<div class="admin"><button class="link" data-clear="${esc(key)}">clear result</button><button class="link danger" data-del="${esc(key)}">delete</button></div>`
+          : `<div class="admin"><select data-result="${esc(key)}"><option value="">Set result&hellip;</option>${opts.map(o => `<option value="${esc(o)}">${esc(o)}</option>`).join("")}</select><button class="link danger" data-del="${esc(key)}">delete</button></div>`;
+      }
+      return `<article class="card ${locked ? "locked" : ""} ${resolved ? "resolved" : ""} ${miss ? "miss" : ""}">
+        <div class="card-head"><span class="pts">${pts} pts</span>${state}</div>
+        <h3>${esc(q.data.title)}</h3>
+        <div class="options">${buttons || `<div class="empty">No options.</div>`}</div>
+        <div class="card-foot">${foot}${admin}</div>
+      </article>`;
+    }).join("");
+  }
+
+  function renderBoard() {
+    const rows = leaderboard(), me = S.user && S.user.email;
+    if (!rows.length) { $("board").innerHTML = `<div class="empty">Nobody on the board yet. Picks by editors show up here as soon as they are made.</div>`; return; }
+    $("board").innerHTML = `<table><thead><tr><th></th><th>Name</th><th class="n">Correct</th><th class="n">Points</th></tr></thead><tbody>${
+      rows.map(r => `<tr class="${r.email === me ? "me" : ""}"><td><span class="rank r${r.rank}">${r.rank}</span></td><td class="who">${esc(r.name)}<small>${r.picks} pick${r.picks === 1 ? "" : "s"}</small></td><td class="n">${r.correct}</td><td class="n pts">${r.points}</td></tr>`).join("")
+    }</tbody></table>`;
+  }
+
+  function render() { renderHeader(); renderQuestions(); renderBoard(); }
+
+  async function refresh() {
+    try { await load(); } catch (e) { toast("Could not load: " + e.message); }
+    render();
+  }
+
+  async function pick(key, idx) {
+    const q = S.questions.find(x => String(x.data.key ?? x.id) === key);
+    if (!q || isLocked(q) || S.busy) return;
+    const choice = options(q)[idx];
+    if (choice === undefined) return;
+    if (!S.user || !S.user.signedIn) { toast("Sign in to make a pick"); nook.signIn(); return; }
+    S.busy = true; renderQuestions();
+    const payload = { question_key: key, question_id: q.id, choice };
+    try {
+      const existing = myPick(key);
+      if (existing) await nook.data.update("me/picks", existing.id, payload);
+      else await nook.data.create("me/picks", payload);
+    } catch (e) {
+      S.busy = false; renderQuestions();
+      if (e.status === 401) { toast("Sign in to make a pick"); nook.signIn(); } else toast("Could not save pick: " + e.message);
+      return;
+    }
+    if (S.user.canEdit) {
+      // Mirror the pick into the shared entries collection so it counts on the leaderboard.
+      const entry = { ...payload, who_name: S.user.name || S.user.email, who_email: S.user.email };
+      try {
+        const mine = latestEntries().find(e => e.data.question_key === key && (e.data.who_email || e.created_by) === S.user.email);
+        if (mine) await nook.data.update("entries", mine.id, entry);
+        else await nook.data.create("entries", entry);
+      } catch (e) { toast("Pick saved privately, but the leaderboard entry failed: " + e.message); }
+    } else {
+      toast("Pick saved privately. Editors can see the board; ask for editor access to join it.");
+    }
+    S.busy = false;
+    await refresh();
+  }
+
+  async function setResult(key, result) {
+    const q = S.questions.find(x => String(x.data.key ?? x.id) === key);
+    if (!q) return;
+    try { await nook.data.update("questions", q.id, { result }); } catch (e) { toast("Could not set result: " + e.message); }
+    await refresh();
+  }
+
+  async function delQuestion(key) {
+    const q = S.questions.find(x => String(x.data.key ?? x.id) === key);
+    if (!q || !confirm(`Delete "${q.data.title}"? Picks on it will no longer score.`)) return;
+    try { await nook.data.remove("questions", q.id); } catch (e) { toast("Could not delete: " + e.message); }
+    await refresh();
+  }
+
+  $("questions").addEventListener("click", e => {
+    const p = e.target.closest("button[data-pick]"); if (p) return pick(p.dataset.pick, Number(p.dataset.idx));
+    const c = e.target.closest("button[data-clear]"); if (c) return setResult(c.dataset.clear, null);
+    const d = e.target.closest("button[data-del]"); if (d) return delQuestion(d.dataset.del);
+  });
+  $("questions").addEventListener("change", e => {
+    const s = e.target.closest("select[data-result]");
+    if (s && s.value !== "") setResult(s.dataset.result, s.value);
+  });
+
+  $("add").onsubmit = async e => {
+    e.preventDefault();
+    const opts = $("q-options").value.split(",").map(s => s.trim()).filter(Boolean);
+    if (new Set(opts).size < 2) return toast("Give at least two distinct options");
+    const data = { key: "q-" + Date.now().toString(36), title: $("q-title").value.trim(), options: opts, closes: $("q-closes").value, result: null, points: Number($("q-points").value) || 10 };
+    try { await nook.data.create("questions", data); $("add").reset(); $("q-points").value = 20; } catch (err) { toast("Could not add: " + err.message); }
+    await refresh();
+  };
+
+  (async () => {
+    try { S.user = await nook.ready; } catch (e) { S.user = null; }
+    await refresh();
+    // Other people's picks and results only show up by re-listing; poll gently while visible.
+    setInterval(() => { if (document.visibilityState === "visible" && !S.busy) refresh(); }, 20000);
+  })();
+</script>
+</body>
+</html>
