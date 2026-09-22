@@ -28,12 +28,12 @@ non-zero exit.
 ## Files a nook needs
 
 ```
-nook.json      { "name": "expenses", "type": "static" }   name: 2-40 chars, a-z 0-9 -
+nook.json      { "name": "expenses" }                    name: 2-40 chars, a-z 0-9 -
 index.html     the app; include <script src="/_nook/nook.js"></script>
 ```
 
 Anything else in the folder (css, js, images) deploys too. Add a `.nookignore` (one path per
-line) to skip files. Deploys are capped at 10 MB. `type` is `static` for now.
+line) to skip files. Deploys are capped at 10 MB.
 
 ## Rules the page must follow
 
