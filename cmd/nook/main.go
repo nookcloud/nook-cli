@@ -342,11 +342,12 @@ func initNook(args []string, asJSON bool) error {
 	if _, err := os.Stat(manifest.FileName); err == nil {
 		return fmt.Errorf("%s already exists here", manifest.FileName)
 	}
-	m := manifest.Manifest{Name: name, Type: "static"}
+	m := manifest.Manifest{Name: name}
 	if err := m.Validate(); err != nil {
 		return err
 	}
-	if err := os.WriteFile(manifest.FileName, []byte(fmt.Sprintf("{ \"name\": %q, \"type\": \"static\" }\n", name)), 0o644); err != nil {
+	// Just the name. Adding a "run" command is what makes a nook run code on a server.
+	if err := os.WriteFile(manifest.FileName, []byte(fmt.Sprintf("{ \"name\": %q }\n", name)), 0o644); err != nil {
 		return err
 	}
 	wrote := []string{manifest.FileName}
