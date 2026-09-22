@@ -41,7 +41,9 @@ class Nook {
     if (opts.limit) q.set('limit', opts.limit)
     if (opts.cursor) q.set('cursor', opts.cursor)
     if (opts.order) q.set('order', opts.order)
-    for (const [field, value] of Object.entries(opts.where || {})) q.set('where', `${field}:${value}`)
+    // append, not set: one where= per field is how the server reads them, and they are and-ed.
+    // Setting would quietly match on the last field only and return too much.
+    for (const [field, value] of Object.entries(opts.where || {})) q.append('where', `${field}:${value}`)
     const out = await this._call('GET', collection, null, q)
     return out.documents || []
   }

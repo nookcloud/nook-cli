@@ -33,3 +33,20 @@ func TestHelpersAreWhatTheSkillDescribes(t *testing.T) {
 		}
 	}
 }
+
+// A where with two fields has to send two where= parameters: the server and-s them, and one
+// parameter would match on the last field only and quietly return rows the caller filtered out.
+func TestWhereSendsOneParameterPerField(t *testing.T) {
+	if strings.Contains(Node, "q.set('where'") {
+		t.Error("nook-data.js overwrites where instead of appending")
+	}
+	if !strings.Contains(Node, "q.append('where'") {
+		t.Error("nook-data.js does not append where")
+	}
+	if strings.Contains(Python, `q["where"] =`) {
+		t.Error("nook_data.py overwrites where instead of appending")
+	}
+	if !strings.Contains(Python, "doseq=True") {
+		t.Error("nook_data.py does not encode repeated parameters")
+	}
+}
