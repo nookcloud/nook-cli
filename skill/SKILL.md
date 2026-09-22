@@ -167,6 +167,76 @@ do { const r = await nook.data.list("items", { limit: 200, cursor }); all.push(.
 </script>
 ```
 
+## When a nook needs a server
+
+Most nooks are a page and nothing else. Add a `run` command to `nook.json` and the nook runs code
+on a server of its own instead: use it when the page cannot do the job, which usually means an API
+key that must not reach a browser, a call to a service that will not allow one, or work on a
+schedule.
+
+```json
+{ "name": "board", "run": "python app.py", "port": 8000,
+  "secrets": ["SLACK_TOKEN"], "egress": ["hooks.slack.com"],
+  "cron": [{ "schedule": "0 9 * * 1-5", "run": "python digest.py" }] }
+```
+
+- `run` is the command. `port` is what it listens on, 1024 or above. Listen on `0.0.0.0`, and
+  read the port from `PORT` if you like; it is in the environment.
+- Python 3.12 and Node 22 are available. There is no build step: the folder is what runs.
+- `secrets` names the values the nook needs. Set each one with `nook secret set board SLACK_TOKEN`,
+  which reads the value from a pipe or a prompt. **A value is never an argument, never in
+  `nook.json`, and never readable again** — not by the owner, not by us. The nook will not start
+  until every declared name is set, and the deploy says which are missing.
+- `egress` is every host the code may reach. Anything not listed is blocked. Leave it out and the
+  nook has no outbound network at all.
+- `cron` runs a command on a schedule, in UTC, five fields, at most five entries.
+
+Add `"source": "viewers"` if you want anyone who can open the nook to read its code; by default
+that is the owner and its editors, because code on a server never reaches a browser the way a
+page does.
+
+### Reading and writing data from server code
+
+`nook_data.py` and `nook-data.js` are written into the nook's folder for you. They are the same
+thing `nook.js` is for a page, with the same rules.
+
+```python
+import nook_data
+
+# For whoever is making this request: pass the request's headers straight through.
+me = nook_data.viewer(self.headers)
+me.create("me/notes", {"text": "only mine"})
+me.list("notes")
+me.user["email"]          # who they are; the nook never sees a password or a token of theirs
+
+# From a cron entry, with nobody on the other end. Shared collections only.
+nook_data.list("notes")
+```
+
+```js
+const nook = require('./nook-data.js')
+const me = nook.viewer(req.headers)
+await me.create('me/notes', { text: 'only mine' })
+await nook.list('notes')          // as the nook itself
+```
+
+**Pass the headers, not an email address.** `viewer()` takes a token out of them that lets the
+nook act for that person while they are using it. There is no way to act for someone by naming
+them, which is what keeps a `me/` collection private even from the nook's own code.
+
+### What the nook is given, and what it is not
+
+The proxy sets `X-Nook-User`, `X-Nook-Name`, `X-Nook-Role`, and the token `viewer()` uses. It
+strips `Authorization` and Nook's own cookies, so **the code never sees a credential**, only who
+someone is. Cookies the nook sets itself pass through normally, so it can keep a session of its
+own if it needs one.
+
+Everything else is fenced: the machine reaches only the hosts in `egress` plus Nook itself, holds
+nothing between restarts, and is stopped when nobody has opened the nook for ten minutes and
+started again on the next request. Keep anything that must last in the data API.
+
+`nook logs board` shows what the code printed, including scheduled jobs and any restarts.
+
 ## Sharing
 
 ```
@@ -216,6 +286,7 @@ yourself, so nothing you build is stuck anywhere.
 ```
 nook list                  nook versions            nook rollback [version]
 nook open                  nook delete              nook account whoami|plan|upgrade|logout
+nook logs <nook>           nook secret set|list|unset <nook> KEY
 ```
 
 Run these inside the nook's folder, or add `--nook <name>`.
