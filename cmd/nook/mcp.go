@@ -108,7 +108,7 @@ func mcpHandle(req rpcRequest) (any, *rpcError) {
 			"protocolVersion": "2025-06-18",
 			"capabilities":    map[string]any{"tools": map[string]any{}},
 			"serverInfo":      map[string]any{"name": "nook", "version": version},
-			"instructions":    "Nook deploys small apps to a URL and shares them like a doc. Call nook_skill first when building a page. Run `nook login` in a terminal if calls fail with 'sign in first'.",
+			"instructions":    "Nook deploys a nook, a small tool at its own URL, and shares it like a doc. Call nook_skill first when building a page. Run `nook login` in a terminal if calls fail with 'sign in first'.",
 		}, nil
 	case "ping":
 		return map[string]any{}, nil

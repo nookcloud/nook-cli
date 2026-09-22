@@ -1,11 +1,11 @@
 ---
 name: nook
-description: Build and deploy a nook, a small web app that lives at a URL and is shared with specific people. Use when the user wants a personal or team tool put online, shared with someone, or when they mention Nook, getnook.dev, nook deploy, or nook.js.
+description: Build and deploy a nook, a small tool that lives at its own URL and is shared with specific people. Use when the user wants a personal or team tool put online, shared with someone, or when they mention Nook, getnook.dev, nook deploy, or nook.js.
 ---
 
 # Building a nook
 
-A **nook** is a small app that lives at `https://<name>.getnook.dev` and is shared with the
+A **nook** is a small tool that lives at `https://<name>.getnook.dev` and is shared with the
 people its owner chooses. You write ordinary HTML/JS/CSS. Nook provides hosting, sign-in,
 sharing, and a per-nook database you reach from the page through `nook.js`. There is no
 backend to write and no login to implement.
@@ -29,7 +29,7 @@ non-zero exit.
 
 ```
 nook.json      { "name": "expenses" }                    name: 2-40 chars, a-z 0-9 -
-index.html     the app; include <script src="/_nook/nook.js"></script>
+index.html     the page; include <script src="/_nook/nook.js"></script>
 ```
 
 Anything else in the folder (css, js, images) deploys too. Add a `.nookignore` (one path per
