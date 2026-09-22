@@ -1,8 +1,8 @@
 # nook
 
-Deploy a small app to a URL with one command. Share it like a doc.
+Deploy a nook, a small tool at its own URL, with one command. Share it like a doc.
 
-A **nook** is a small app that lives at `https://<name>.getnook.dev` and is shared with the
+A **nook** is a small tool that lives at `https://<name>.getnook.dev` and is shared with the
 people you choose. You write ordinary HTML, JS, and CSS. Nook adds the URL, sign-in, sharing,
 and a database your page reaches through one script tag.
 

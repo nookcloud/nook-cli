@@ -34,6 +34,19 @@ func main() {
 	args, asJSON := stripJSON(os.Args[2:])
 	var err error
 	cmd := os.Args[1]
+	// `nook help <command>` and `nook <command> --help` say what one command does.
+	if cmd == "help" || cmd == "--help" || cmd == "-h" {
+		if len(args) == 0 {
+			usage()
+			os.Exit(0)
+		}
+		os.Exit(help(args[0]))
+	}
+	for _, a := range args {
+		if a == "--help" || a == "-h" {
+			os.Exit(help(cmd))
+		}
+	}
 	// `nook account <sub>` groups the account commands; the bare names still work.
 	if cmd == "account" {
 		if len(args) == 0 {
@@ -108,7 +121,7 @@ func main() {
 }
 
 func usage() {
-	fmt.Fprintln(os.Stderr, `nook: deploy a small app to a URL with one command. share it like a doc.
+	fmt.Fprintln(os.Stderr, `nook: deploy a nook, a small tool at its own URL, with one command. share it like a doc.
 
   login                        sign in (opens a browser)
   init [name]                  create nook.json and a starter page here
@@ -127,9 +140,104 @@ more:
   secret set|list|unset [nook] KEY      values come from stdin or a prompt, never argv
   delete [nook]                mcp (run the MCP server on stdio)
   account whoami|plan|upgrade|logout|stats
+  help <command>               what one command does; --help after any command works too
 
 [nook] defaults to the name in ./nook.json. every command takes --json.
 env: NOOK_API (default https://getnook.dev), NOOK_TOKEN`)
+}
+
+// helpText is what each command does, in the words a person needs to use it. Generated docs read
+// these verbatim, so a line here is a line on the docs site.
+var helpText = map[string]string{
+	"login": `nook login [--dev <email>]
+  sign in. opens the browser to getnook.dev and stores a token for this server under your
+  config directory. --dev <email> signs in as that email against a local server started
+  with NOOK_DEV_LOGIN=1.`,
+	"init": `nook init [name]
+  write a nook.json and a starter index.html in this folder. the name is the subdomain;
+  it defaults to the folder's name.`,
+	"deploy": `nook deploy [dir]
+  deploy the folder as a nook. reads nook.json for the name and uploads every file not
+  ignored by .nookignore; .git, node_modules, editor and agent folders, and .env are always
+  skipped. prints the url and the new version number. a nook with a run command in its
+  manifest runs it on a server.`,
+	"share": `nook share [nook] <email> [--role viewer|editor]
+  give one person access. viewer opens and uses the nook; editor also edits its data and
+  reads its code. the person signs in with that email.`,
+	"unshare": `nook unshare [nook] <email>
+  take one person's access away.`,
+	"mode": `nook mode [nook] <private|org|link|public>
+  who can open the nook besides the people it is shared with. private: nobody. org: anyone
+  who signs in with an email at your domain. link: anyone with the address, signed in.
+  public: anyone, signed in or not, read-only.`,
+	"open": `nook open [nook]
+  open the nook in a browser.`,
+	"list": `nook list
+  your nooks, then the nooks other people have shared with you.`,
+	"pull": `nook pull <nook> [dir]
+  download a nook's files to a folder, to edit and redeploy. files only; data stays where
+  it is. you need to be able to read the nook's code.`,
+	"remix": `nook remix <nook> [--as name]
+  copy a nook you can open into a new one you own, without its data. the new nook is
+  private until you share it.`,
+	"transfer": `nook transfer [nook] <email>
+  make someone else the owner. you stay on as an editor. any secrets are cleared and the
+  new owner is told which names to set.`,
+	"versions": `nook versions [nook]
+  every deploy of the nook, newest first, with its version number.`,
+	"rollback": `nook rollback [nook] [version]
+  serve an earlier version again. defaults to the one before the current. rolls back the
+  files and the manifest together; data is untouched.`,
+	"export": `nook export [nook] [-o file]
+  download the whole nook, files and database, as one archive.`,
+	"import": `nook import <file> [--name n] [--share]
+  create a nook from an archive made by nook export. --share keeps the sharing that was
+  recorded in the archive.`,
+	"data": `nook data <nook> list|get|create|update|delete|export|import <collection> ...
+  work with the nook's database from the terminal.
+    list <collection> [--limit n] [--order asc|desc]
+    get <collection> <id>
+    create <collection> '<json>'
+    update <collection> <id> '<json>'
+    delete <collection> <id>
+    export <collection> [--csv]          json unless --csv; writes to stdout
+    import <collection> <file.csv>
+  collections starting with me/ are per-person.`,
+	"secret": `nook secret set|list|unset [nook] KEY
+  secrets for a nook that runs code. set reads the value from stdin or a hidden prompt,
+  never from the command line, and it is never shown again. list shows which declared
+  names are set and by whom. unset removes one. only the owner may do this.`,
+	"delete": `nook delete [nook]
+  delete the nook, its files, and its database. there is no undo; nook export first.`,
+	"mcp": `nook mcp
+  run the mcp server on stdin and stdout, for an agent to call. every command here is a
+  tool, except secrets, on purpose.`,
+	"account": `nook account whoami|plan|upgrade|logout|stats
+  whoami: who you are signed in as. plan: your plan and what you are using of it.
+  upgrade: open billing. logout: forget the token for this server. stats: platform
+  totals, admins only. the bare names work too, without "account".`,
+	"version": `nook version
+  print the version of this binary.`,
+}
+
+// help prints one command's text and returns the exit code.
+func help(cmd string) int {
+	switch cmd {
+	case "ls":
+		cmd = "list"
+	case "secrets":
+		cmd = "secret"
+	case "whoami", "plan", "upgrade", "logout", "stats":
+		cmd = "account"
+	}
+	t, ok := helpText[cmd]
+	if !ok {
+		fmt.Fprintf(os.Stderr, "nook: no command %q\n\n", cmd)
+		usage()
+		return 2
+	}
+	fmt.Fprintln(os.Stderr, t)
+	return 0
 }
 
 func stripJSON(args []string) ([]string, bool) {
