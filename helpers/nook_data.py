@@ -44,15 +44,17 @@ class Nook:
 
     def list(self, collection, limit=None, cursor=None, order=None, where=None):
         """Documents in a collection, newest last unless order='desc'."""
-        q = {}
+        q = []
         if limit:
-            q["limit"] = limit
+            q.append(("limit", limit))
         if cursor:
-            q["cursor"] = cursor
+            q.append(("cursor", cursor))
         if order:
-            q["order"] = order
+            q.append(("order", order))
+        # One where= per field, which is how the server reads them: they are and-ed together.
+        # A single parameter would quietly match on the last field only and return too much.
         for field, value in (where or {}).items():
-            q["where"] = "%s:%s" % (field, value)
+            q.append(("where", "%s:%s" % (field, value)))
         return self._call("GET", collection, params=q).get("documents", [])
 
     def get(self, collection, id):
@@ -73,7 +75,7 @@ class Nook:
             raise NookError(0, "NOOK_DATA_URL is not set: this is not running as a nook")
         url = self.base + urllib.parse.quote(path)
         if params:
-            url += "?" + urllib.parse.urlencode(params)
+            url += "?" + urllib.parse.urlencode(params, doseq=True)
         data = json.dumps(body).encode() if body is not None else None
         req = urllib.request.Request(url, method=method, data=data)
         req.add_header("Authorization", "Bearer " + self.token)
