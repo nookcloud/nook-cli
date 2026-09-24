@@ -11,6 +11,7 @@ import (
 	"io/fs"
 	"net"
 	"net/http"
+	"net/url"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -80,6 +81,8 @@ func main() {
 		err = transfer(args, asJSON)
 	case "versions":
 		err = versions(args, asJSON)
+	case "logs":
+		err = logs(args, asJSON)
 	case "rollback":
 		err = rollback(args, asJSON)
 	case "export":
@@ -135,6 +138,7 @@ func usage() {
 more:
   unshare [nook] <email>       mode [nook] <private|org|link|public>
   transfer [nook] <email>      versions [nook]      rollback [nook] [version]
+  logs [nook] [-n lines]       what a nook with a run command has printed
   export [nook] [-o file]      import <file> [--name n] [--share]
   data <nook> list|get|create|update|delete|export|import <collection> ...
   secret set|list|unset [nook] KEY      values come from stdin or a prompt, never argv
@@ -183,6 +187,10 @@ var helpText = map[string]string{
 	"transfer": `nook transfer [nook] <email>
   make someone else the owner. you stay on as an editor. any secrets are cleared and the
   new owner is told which names to set.`,
+	"logs": `nook logs [nook] [-n lines]
+  what a nook with a run command has printed: its own output, its scheduled jobs, and the
+  supervisor's restart notes. the last 200 lines unless -n says otherwise. only the owner may
+  read them. a nook without a run command has no logs; its code runs in the browser.`,
 	"versions": `nook versions [nook]
   every deploy of the nook, newest first, with its version number.`,
 	"rollback": `nook rollback [nook] [version]
@@ -964,6 +972,34 @@ func importNook(args []string, asJSON bool) error {
 		return err
 	}
 	return emit(asJSON, out, fmt.Sprintf("imported %v (%v files, %v documents)\n%v", out["name"], out["files"], out["documents"], out["url"]))
+}
+
+func logs(args []string, asJSON bool) error {
+	n, rest := flagValue(args, "-n")
+	name, _, err := nookName(rest, nil)
+	if err != nil {
+		return err
+	}
+	q := ""
+	if n != "" {
+		q = "?lines=" + url.QueryEscape(n)
+	}
+	out, err := call(http.MethodGet, "/v1/nooks/"+name+"/logs"+q, nil, "")
+	if err != nil {
+		return err
+	}
+	if asJSON {
+		return json.NewEncoder(os.Stdout).Encode(out)
+	}
+	lines, _ := out["lines"].([]any)
+	if len(lines) == 0 {
+		fmt.Fprintf(os.Stderr, "no logs yet for %s (%v)\n", name, out["source"])
+		return nil
+	}
+	for _, l := range lines {
+		fmt.Println(l)
+	}
+	return nil
 }
 
 func versions(args []string, asJSON bool) error {
