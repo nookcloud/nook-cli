@@ -58,6 +58,7 @@ var mcpTools = []mcpTool{
 	{"nook_data_create", "Create a document (a JSON object) in a nook collection.", obj(map[string]any{"nook": str("nook name"), "collection": str("collection name"), "data": map[string]any{"type": "object", "description": "the document"}}, "nook", "collection", "data")},
 	{"nook_data_update", "Merge fields into an existing document.", obj(map[string]any{"nook": str("nook name"), "collection": str("collection name"), "id": str("document id"), "data": map[string]any{"type": "object"}}, "nook", "collection", "id", "data")},
 	{"nook_data_delete", "Delete a document.", obj(map[string]any{"nook": str("nook name"), "collection": str("collection name"), "id": str("document id")}, "nook", "collection", "id")},
+	{"nook_logs", "What a nook with a run command has printed on its server: the last lines of its output, scheduled jobs, and restarts. Owner only.", obj(map[string]any{"nook": str("nook name"), "lines": map[string]any{"type": "integer", "description": "how many recent lines (default 200)"}}, "nook")},
 	{"nook_rollback", "Roll a nook back to a previous version (default: the one before current).", obj(map[string]any{"nook": str("nook name"), "version": map[string]any{"type": "integer"}}, "nook")},
 	{"nook_remix", "Copy a nook the user can open into one they own, with its files and none of its data.", obj(map[string]any{"nook": str("source nook name"), "name": str("name for the copy (optional)")}, "nook")},
 	{"nook_pull", "Download a nook's current files into a directory so they can be edited and redeployed.", obj(map[string]any{"nook": str("nook name"), "dir": str("target directory (default: the nook name)")}, "nook")},
@@ -161,6 +162,12 @@ func mcpCall(name string, a map[string]any) (string, bool) {
 		return res(call(http.MethodDelete, "/v1/nooks/"+argStr(a, "nook")+"/share/"+argStr(a, "email"), nil, ""))
 	case "nook_mode":
 		return res(callJSON(http.MethodPut, "/v1/nooks/"+argStr(a, "nook")+"/mode", map[string]string{"mode": argStr(a, "mode")}))
+	case "nook_logs":
+		q := ""
+		if n, ok := a["lines"].(float64); ok && n > 0 {
+			q = fmt.Sprintf("?lines=%d", int(n))
+		}
+		return res(call(http.MethodGet, "/v1/nooks/"+argStr(a, "nook")+"/logs"+q, nil, ""))
 	case "nook_rollback":
 		v, _ := a["version"].(float64)
 		return res(callJSON(http.MethodPost, "/v1/nooks/"+argStr(a, "nook")+"/rollback", map[string]int{"version": int(v)}))
