@@ -189,7 +189,11 @@ schedule.
   until every declared name is set, and the deploy says which are missing.
 - `egress` is every host the code may reach. Anything not listed is blocked. Leave it out and the
   nook has no outbound network at all.
-- `cron` runs a command on a schedule, in UTC, five fields, at most five entries.
+- `cron` runs a command on a schedule, in UTC, five fields, at most five entries. A scheduled job
+  wakes the nook: it runs whether or not anyone is using it, and it does not need the nook's own
+  page to have been opened. The nook stays awake for about ten minutes after a job finishes, and
+  longer while one is still running, so an entry every minute keeps it awake all the time and a
+  nightly entry costs about ten minutes a night.
 
 Add `"source": "viewers"` if you want anyone who can open the nook to read its code; by default
 that is the owner and its editors, because code on a server never reaches a browser the way a
